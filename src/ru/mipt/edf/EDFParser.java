@@ -1,8 +1,14 @@
 package ru.mipt.edf;
 
+import java.io.Closeable;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.text.MessageFormat;
+import java.util.Scanner;
 
 public class EDFParser
 {
@@ -54,10 +60,97 @@ public class EDFParser
 
 	public static void main(String[] args) throws IOException
 	{
+
 		EDFParser parser = new EDFParser();
-		InputStream is = new FileInputStream(args[0]);
-		parser.parseEDF(is);
-		is.close();
+		File file = new File(args[0]);
+		new File(file.getParent() + "/data").getAbsoluteFile().mkdir();
+		InputStream is = null;
+		FileOutputStream fos = null;
+		InputStream format = null;
+		try
+		{
+			is = new FileInputStream(file);
+			parser.parseEDF(is);
+			fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_header.txt"));
+			format = EDFParser.class.getResourceAsStream("header.format");
+			parser.writeHeaderData(fos, getPattern(format));
+		} finally
+		{
+			close(is);
+			close(fos);
+			close(format);
+		}
+		String channelFormat = null;
+		try
+		{
+			format = EDFParser.class.getResourceAsStream("channel_info.format");
+			channelFormat = getPattern(format);
+		} finally
+		{
+			close(format);
+		}
+
+		for (int i = 0; i < parser.getNumberOfChannels(); i++)
+		{
+			try
+			{
+				fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_channel_info_" + i + ".txt"));
+				parser.writeChannelData(fos, channelFormat, i);
+			} finally
+			{
+				close(format);
+				close(fos);
+			}
+			try
+			{
+				fos = new FileOutputStream(file.getParent() + "/data/" + file.getName().replaceAll("[.].*", "_" + i + ".txt"));
+				for (int j = 0; j < parser.getValuesInUnits()[i].length; j++)
+				{
+					fos.write((parser.getValuesInUnits()[i][j]+"\n").getBytes("UTF-8"));
+				}
+			} finally
+			{
+				close(format);
+				close(fos);
+			}
+		}
+
+	}
+
+	private static void close(Closeable c)
+	{
+		try
+		{
+			c.close();
+		} catch (Exception e)
+		{
+		}
+	}
+
+	private void writeHeaderData(OutputStream os, String pattern) throws IOException
+	{
+		String message = MessageFormat.format(pattern, idCode.trim(), subjectID.trim(), recordingID.trim(), startDate.trim(),
+				startTime.trim(), bytesInHeader, formatVersion.trim(), numberOfRecords, durationOfRecords, numberOfChannels);
+		os.write(message.getBytes("UTF-8"));
+	}
+
+	private void writeChannelData(OutputStream os, String pattern, int i) throws IOException
+	{
+		String message = MessageFormat.format(pattern, channelLabels[i].trim(), transducerTypes[i].trim(), dimensions[i].trim(),
+				minInUnits[i], maxInUnits[i], digitalMin[i], digitalMax[i], prefilterings[i].trim(), numberOfSamples[i],
+				reserveds[i].trim());
+		os.write(message.getBytes("UTF-8"));
+	}
+
+	private static String getPattern(InputStream is)
+	{
+		StringBuilder str = new StringBuilder();
+		Scanner scn = new Scanner(is);
+		while (scn.hasNextLine())
+		{
+			str.append(scn.nextLine()).append("\n");
+		}
+		return str.toString();
 	}
 
 	public EDFParser()

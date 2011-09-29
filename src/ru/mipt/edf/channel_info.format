@@ -1,0 +1,10 @@
+Labels of the channel: {0}
+Transducer type: {1}
+Physical dimension of channel: {2}
+Physical minimum in units of physical dimension: {3}
+Physical maximum in units of physical dimension: {4}
+Digital minimum: {5}
+Digital maximum: {6}
+Prefiltering: {7}
+Number of samples in each data record: {8}
+Reserved Information: {9}

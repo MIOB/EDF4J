@@ -1,0 +1,10 @@
+Identification code: {0}
+Local subject identification: {1}
+Local recording identification: {2}
+Startdate of recording: {3}
+Starttime of recording: {4}
+Number of bytes in header record: {5}
+Version of data format: {6}
+Number of data records: {7}
+Duration of a data record: {8} seconds
+Number of channels in data record: {9}
