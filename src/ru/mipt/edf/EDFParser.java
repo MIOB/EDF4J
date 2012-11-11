@@ -1,14 +1,11 @@
 ﻿package ru.mipt.edf;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.text.MessageFormat;
-import java.util.Scanner;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 
 public class EDFParser
 {
@@ -227,25 +224,30 @@ public class EDFParser
 			digitalValues[i] = new short[numberOfRecords * numberOfSamples[i]];
 			valuesInUnits[i] = new double[numberOfRecords * numberOfSamples[i]];
 		}
+		
+		int samplesPerRecord = 0;
+		for (int nos : numberOfSamples) 
+		{
+			samplesPerRecord += nos;
+		}
+		
+		ReadableByteChannel ch = Channels.newChannel(is);
+		ByteBuffer bytebuf = ByteBuffer.allocate(samplesPerRecord*2);
+		bytebuf.order(ByteOrder.LITTLE_ENDIAN);
 
 		for (int i = 0; i < numberOfRecords; i++)
+		{
+			bytebuf.rewind();
+			ch.read(bytebuf);
+			bytebuf.rewind();
 			for (int j = 0; j < numberOfChannels; j++)
 				for (int k = 0; k < numberOfSamples[j]; k++)
 				{
 					int s = numberOfSamples[j] * i + k;
-					digitalValues[j][s] = readShortFromStream(is);
+					digitalValues[j][s] = bytebuf.getShort();
 					valuesInUnits[j][s] = digitalValues[j][s] * unitsInDigit[j];
 				}
-	}
-
-	private short readShortFromStream(InputStream is) throws IOException
-	{
-		int len = 0;
-		byte[] data = new byte[2];
-		len = is.read(data);
-		if (len != data.length)
-			throw new IOException("Не верный формат EDF файла");
-		return (short) (data[0] | data[1] * 256);
+		}
 	}
 
 	private String[] readBulkASCIIFromStream(InputStream is, int size, int length) throws IOException
