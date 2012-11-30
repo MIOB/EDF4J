@@ -27,11 +27,18 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
+import static ru.mipt.edf.ParseUtils.readASCIIFromStream;
+import static ru.mipt.edf.ParseUtils.readBulkASCIIFromStream;
+import static ru.mipt.edf.ParseUtils.readBulkDoubleFromStream;
+import static ru.mipt.edf.ParseUtils.readBulkIntFromStream;
+import static ru.mipt.edf.ParseUtils.removeElement;
+
 /**
- * This is an EDFParser which is capable of parsing files in the formats EDF and EDF+.
+ * This is an EDFParser which is capable of parsing files in the formats EDF and
+ * EDF+.
  * 
  * For information about EDF or EDF+ see http://www.edfplus.info/
  */
@@ -58,348 +65,253 @@ public class EDFParser
 	private static final int NUMBER_OF_SAMPLES_SIZE = 8;
 	private static final int RESERVED_SIZE = 32;
 
-	private String idCode = null;
-	private String subjectID = null;
-	private String recordingID = null;
-	private String startDate = null;
-	private String startTime = null;
-	private int bytesInHeader = 0;
-	private String formatVersion = null;
-	private int numberOfRecords = 0;
-	private double durationOfRecords = 0;
-	private int numberOfChannels = 0;
-	private String[] channelLabels = null;
-	private String[] transducerTypes = null;
-	private String[] dimensions = null;
-	private double[] minInUnits = null;
-	private double[] maxInUnits = null;
-	private int[] digitalMin = null;
-	private int[] digitalMax = null;
-	private String[] prefilterings = null;
-	private int[] numberOfSamples = null;
-	private byte[][] reserveds = null;
-	private short[][] digitalValues = null;
-
-	private double[] unitsInDigit = null;
-	private double[][] valuesInUnits = null;
-	private int annotationIndex = 1024;
-	private List<Annotation> annotations = null;
-
-	public EDFParser()
+	/**
+	 * Parse the InputStream which should be at the start of an EDF-File. The
+	 * method returns an object containing the complete content of the EDF-File.
+	 * 
+	 * @param is
+	 *            the InputStream to the EDF-File
+	 * @return the parsed result
+	 * @throws EDFParserException
+	 *             if there is an error during parsing
+	 */
+	public static EDFParserResult parseEDF(InputStream is) throws EDFParserException
 	{
-		super();
+		EDFParserResult result = parseHeader(is);
+		parseSignal(is, result);
+
+		return result;
 	}
 
 	/**
-	 * Parse both data and header of EDF file.
+	 * Parse the InputStream which should be at the start of an EDF-File. The
+	 * method returns an object containing the complete header of the EDF-File
 	 * 
-	 * @param is stream with EDF file.
-	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
+	 * @param is
+	 *            the InputStream to the EDF-File
+	 * @return the parsed result
+	 * @throws EDFParserException
+	 *             if there is an error during parsing
 	 */
-	public void parseEDF(InputStream is) throws IOException
+	public static EDFParserResult parseHeader(InputStream is) throws EDFParserException
 	{
-		parseHeader(is);
-		parseData(is);
-	}
-
-	public final String getIdCode()
-	{
-		return idCode;
-	}
-
-	public final String getSubjectID()
-	{
-		return subjectID;
-	}
-
-	public final String getRecordingID()
-	{
-		return recordingID;
-	}
-
-	public final String getStartDate()
-	{
-		return startDate;
-	}
-
-	public final String getStartTime()
-	{
-		return startTime;
-	}
-
-	public final int getBytesInHeader()
-	{
-		return bytesInHeader;
-	}
-
-	public final String getFormatVersion()
-	{
-		return formatVersion;
-	}
-
-	public final int getNumberOfRecords()
-	{
-		return numberOfRecords;
-	}
-
-	public final double getDurationOfRecords()
-	{
-		return durationOfRecords;
-	}
-
-	public final int getNumberOfChannels()
-	{
-		return numberOfChannels;
-	}
-
-	public final String getChannelLabels(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return channelLabels[i];
-	}
-
-	public final String getTransducerTypes(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return transducerTypes[i];
-	}
-
-	public final String getDimensions(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return dimensions[i];
-	}
-
-	public final double getMinInUnits(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return minInUnits[i];
-	}
-
-	public final double getMaxInUnits(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return maxInUnits[i];
-	}
-
-	public final int getDigitalMin(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return digitalMin[i];
-	}
-
-	public final int getDigitalMax(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return digitalMax[i];
-	}
-
-	public final String getPrefilterings(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return prefilterings[i];
-	}
-
-	public final int getNumberOfSamples(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return numberOfSamples[i];
-	}
-
-	public final byte[] getReserveds(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return reserveds[i];
-	}
-
-	public final short[] getDigitalValues(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return digitalValues[i];
-	}
-
-	public final double[] getValuesInUnits(int i)
-	{
-		if (i >= annotationIndex)
-			i++;
-		return valuesInUnits[i];
-	}
-
-	public final List<Annotation> getAnnotations()
-	{
-		if (annotations == null)
-			return null;
-		return Collections.unmodifiableList(annotations);
-	}
-
-	private void parseAnnotation()
-	{
-
-		if (!formatVersion.startsWith("EDF+"))
-			return;
-
-		for (int i = 0; i < numberOfChannels; i++)
+		try
 		{
-			if ("EDF Annotations".equals(channelLabels[i].trim()))
+			if (is.read() != '0')
+				throw new EDFParserException();
+			EDFHeader header = new EDFHeader();
+			EDFParserResult result = new EDFParserResult();
+			result.header = header;
+
+			header.idCode = readASCIIFromStream(is, IDENTIFICATION_CODE_SIZE);
+			header.subjectID = readASCIIFromStream(is, LOCAL_SUBJECT_IDENTIFICATION_SIZE);
+			header.recordingID = readASCIIFromStream(is, LOCAL_REOCRDING_IDENTIFICATION_SIZE);
+			header.startDate = readASCIIFromStream(is, START_DATE_SIZE);
+			header.startTime = readASCIIFromStream(is, START_TIME_SIZE);
+			header.bytesInHeader = Integer.parseInt(readASCIIFromStream(is, HEADER_SIZE).trim());
+			header.formatVersion = readASCIIFromStream(is, DATA_FORMAT_VERSION_SIZE);
+			header.numberOfRecords = Integer.parseInt(readASCIIFromStream(is, NUMBER_OF_DATA_RECORDS_SIZE).trim());
+			header.durationOfRecords = Double.parseDouble(readASCIIFromStream(is, DURATION_DATA_RECORDS_SIZE).trim());
+			header.numberOfChannels = Integer.parseInt(readASCIIFromStream(is, NUMBER_OF_CHANELS_SIZE).trim());
+
+			parseChannelInformation(is, result);
+
+			return result;
+		} catch (IOException e)
+		{
+			throw new EDFParserException(e);
+		}
+	}
+
+	/**
+	 * Parse only data EDF file. This method should be invoked only after
+	 * parseHeader method.
+	 * 
+	 * @param is
+	 *            stream with EDF file.
+	 * @param result
+	 *            results from {@link #parseHeader(is) parseHeader} method
+	 * @return the parsed result
+	 * @throws EDFParserException
+	 *             throws if parser don't recognized EDF (EDF+) format in
+	 *             stream.
+	 */
+	public static EDFParserResult parseSignal(InputStream is, EDFParserResult result) throws EDFParserException
+	{
+		try
+		{
+			EDFSignal signal = new EDFSignal();
+			EDFHeader header = result.getHeader();
+
+			signal.unitsInDigit = new Double[header.numberOfChannels];
+			for (int i = 0; i < signal.unitsInDigit.length; i++)
+				signal.unitsInDigit[i] = (header.maxInUnits[i] - header.minInUnits[i])
+						/ (header.digitalMax[i] - header.digitalMin[i]);
+
+			signal.digitalValues = new short[header.numberOfChannels][];
+			signal.valuesInUnits = new double[header.numberOfChannels][];
+			for (int i = 0; i < header.numberOfChannels; i++)
+			{
+				signal.digitalValues[i] = new short[header.numberOfRecords * header.numberOfSamples[i]];
+				signal.valuesInUnits[i] = new double[header.numberOfRecords * header.numberOfSamples[i]];
+			}
+
+			int samplesPerRecord = 0;
+			for (int nos : header.numberOfSamples)
+			{
+				samplesPerRecord += nos;
+			}
+
+			ReadableByteChannel ch = Channels.newChannel(is);
+			ByteBuffer bytebuf = ByteBuffer.allocate(samplesPerRecord * 2);
+			bytebuf.order(ByteOrder.LITTLE_ENDIAN);
+
+			for (int i = 0; i < header.numberOfRecords; i++)
+			{
+				bytebuf.rewind();
+				ch.read(bytebuf);
+				bytebuf.rewind();
+				for (int j = 0; j < header.numberOfChannels; j++)
+					for (int k = 0; k < header.numberOfSamples[j]; k++)
+					{
+						int s = header.numberOfSamples[j] * i + k;
+						signal.digitalValues[j][s] = bytebuf.getShort();
+						signal.valuesInUnits[j][s] = signal.digitalValues[j][s] * signal.unitsInDigit[j];
+					}
+			}
+
+			result.annotations = parseAnnotation(header, signal);
+
+			result.signal = signal;
+			return result;
+		} catch (IOException e)
+		{
+			throw new EDFParserException(e);
+		}
+	}
+
+	private static List<EDFAnnotation> parseAnnotation(EDFHeader header, EDFSignal signal)
+	{
+
+		if (!header.formatVersion.startsWith("EDF+"))
+			return null;
+
+		int annotationIndex = -1;
+		for (int i = 0; i < header.numberOfChannels; i++)
+		{
+			if ("EDF Annotations".equals(header.channelLabels[i].trim()))
 			{
 				annotationIndex = i;
-				numberOfChannels--;
 				break;
 			}
 		}
-		short[] s = digitalValues[annotationIndex];
+		if (annotationIndex == -1)
+			return null;
+
+		short[] s = signal.digitalValues[annotationIndex];
 		byte[] b = new byte[s.length * 2];
 		for (int i = 0; i < s.length * 2; i += 2)
 		{
 			b[i] = (byte) (s[i / 2] % 256);
 			b[i + 1] = (byte) (s[i / 2] / 256 % 256);
 		}
-		annotations = Annotation.parseAnnotations(b);
+
+		removeAnnotationSignal(header, signal, annotationIndex);
+
+		return parseAnnotations(b);
 
 	}
 
-	/**
-	 * Parse only header of EDF file.
-	 * 
-	 * @param is stream with EDF file.
-	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
-	 */
-	public void parseHeader(InputStream is) throws IOException
+	private static List<EDFAnnotation> parseAnnotations(byte[] b)
 	{
-		if (is.read() != '0')
-			throw new IOException("Wrong EDF format.");
-		idCode = readASCIIFromStream(is, IDENTIFICATION_CODE_SIZE);
-		subjectID = readASCIIFromStream(is, LOCAL_SUBJECT_IDENTIFICATION_SIZE);
-		recordingID = readASCIIFromStream(is, LOCAL_REOCRDING_IDENTIFICATION_SIZE);
-		startDate = readASCIIFromStream(is, START_DATE_SIZE);
-		startTime = readASCIIFromStream(is, START_TIME_SIZE);
-		bytesInHeader = Integer.parseInt(readASCIIFromStream(is, HEADER_SIZE).trim());
-		formatVersion = readASCIIFromStream(is, DATA_FORMAT_VERSION_SIZE);
-		numberOfRecords = Integer.parseInt(readASCIIFromStream(is, NUMBER_OF_DATA_RECORDS_SIZE).trim());
-		durationOfRecords = Double.parseDouble(readASCIIFromStream(is, DURATION_DATA_RECORDS_SIZE).trim());
-		numberOfChannels = Integer.parseInt(readASCIIFromStream(is, NUMBER_OF_CHANELS_SIZE).trim());
-
-		parseChannelInformation(is);
-	}
-
-	private void parseChannelInformation(InputStream is) throws IOException
-	{
-		channelLabels = readBulkASCIIFromStream(is, LABEL_OF_CHANNEL_SIZE, numberOfChannels);
-		transducerTypes = readBulkASCIIFromStream(is, TRANSDUCER_TYPE_SIZE, numberOfChannels);
-		dimensions = readBulkASCIIFromStream(is, PHYSICAL_DIMENSION_OF_CHANNEL_SIZE, numberOfChannels);
-		minInUnits = readBulkDoubleFromStream(is, PHYSICAL_MIN_IN_UNITS_SIZE, numberOfChannels);
-		maxInUnits = readBulkDoubleFromStream(is, PHYSICAL_MAX_IN_UNITS_SIZE, numberOfChannels);
-		digitalMin = readBulkIntFromStream(is, DIGITAL_MIN_SIZE, numberOfChannels);
-		digitalMax = readBulkIntFromStream(is, DIGITAL_MAX_SIZE, numberOfChannels);
-		prefilterings = readBulkASCIIFromStream(is, PREFILTERING_SIZE, numberOfChannels);
-		numberOfSamples = readBulkIntFromStream(is, NUMBER_OF_SAMPLES_SIZE, numberOfChannels);
-		reserveds = new byte[numberOfChannels][];
-		for (int i = 0; i < reserveds.length; i++)
+		List<EDFAnnotation> annotations = new ArrayList<EDFAnnotation>();
+		int onSetIndex = 0;
+		int durationIndex = -1;
+		int annotationIndex = -2;
+		int endIndex = -3;
+		for (int i = 0; i < b.length - 1; i++)
 		{
-			reserveds[i] = new byte[RESERVED_SIZE];
-			is.read(reserveds[i]);
-		}
-	}
+			if (b[i] == 21)
+			{
+				durationIndex = i;
+				continue;
+			}
+			if (b[i] == 20 && onSetIndex > annotationIndex)
+			{
+				annotationIndex = i;
+				continue;
+			}
+			if (b[i] == 20 && b[i + 1] == 0)
+			{
+				endIndex = i;
+				continue;
+			}
+			if (b[i] != 0 && onSetIndex < endIndex)
+			{
 
-	/**
-	 * Parse only data EDF file.
-	 * This method should be invoked only after parseHeader method.
-	 * 
-	 * @param is stream with EDF file.
-	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
-	 */
-	public void parseData(InputStream is) throws IOException
-	{
-		if(idCode == null)
-			throw new IllegalStateException("Header have not been parsed");
-		unitsInDigit = new double[numberOfChannels];
-		for (int i = 0; i < unitsInDigit.length; i++)
-			unitsInDigit[i] = (maxInUnits[i] - minInUnits[i]) / (digitalMax[i] - digitalMin[i]);
-
-		digitalValues = new short[numberOfChannels][];
-		valuesInUnits = new double[numberOfChannels][];
-		for (int i = 0; i < numberOfChannels; i++)
-		{
-			digitalValues[i] = new short[numberOfRecords * numberOfSamples[i]];
-			valuesInUnits[i] = new double[numberOfRecords * numberOfSamples[i]];
-		}
-
-		int samplesPerRecord = 0;
-		for (int nos : numberOfSamples) 
-		{
-			samplesPerRecord += nos;
-		}
-		
-		ReadableByteChannel ch = Channels.newChannel(is);
-		ByteBuffer bytebuf = ByteBuffer.allocate(samplesPerRecord*2);
-		bytebuf.order(ByteOrder.LITTLE_ENDIAN);
-
-		for (int i = 0; i < numberOfRecords; i++)
-		{
-			bytebuf.rewind();
-			ch.read(bytebuf);
-			bytebuf.rewind();
-			for (int j = 0; j < numberOfChannels; j++)
-				for (int k = 0; k < numberOfSamples[j]; k++)
+				String onSet = null;
+				String duration = null;
+				if (durationIndex > onSetIndex)
 				{
-					int s = numberOfSamples[j] * i + k;
-					digitalValues[j][s] = bytebuf.getShort();
-					valuesInUnits[j][s] = digitalValues[j][s] * unitsInDigit[j];
+					onSet = new String(b, onSetIndex, durationIndex - onSetIndex);
+					duration = new String(b, durationIndex, annotationIndex - durationIndex);
+				} else
+				{
+					onSet = new String(b, onSetIndex, annotationIndex - onSetIndex);
+					duration = "";
 				}
+				String annotation = new String(b, annotationIndex, endIndex - annotationIndex);
+				annotations.add(new EDFAnnotation(onSet, duration, annotation.split("[\u0014]")));
+				onSetIndex = i;
+			}
 		}
-		
-		parseAnnotation();
+		return annotations;
 	}
 
-	private String[] readBulkASCIIFromStream(InputStream is, int size, int length) throws IOException
+	private static void removeAnnotationSignal(EDFHeader header, EDFSignal signal, int annotationIndex)
 	{
-		String[] result = new String[length];
-		for (int i = 0; i < length; i++)
+		header.numberOfChannels--;
+		removeElement(header.channelLabels, annotationIndex);
+		removeElement(header.transducerTypes, annotationIndex);
+		removeElement(header.dimensions, annotationIndex);
+		removeElement(header.minInUnits, annotationIndex);
+		removeElement(header.maxInUnits, annotationIndex);
+		removeElement(header.digitalMin, annotationIndex);
+		removeElement(header.digitalMax, annotationIndex);
+		removeElement(header.prefilterings, annotationIndex);
+		removeElement(header.numberOfSamples, annotationIndex);
+		removeElement(header.reserveds, annotationIndex);
+
+		removeElement(signal.digitalValues, annotationIndex);
+		removeElement(signal.unitsInDigit, annotationIndex);
+		removeElement(signal.valuesInUnits, annotationIndex);
+	}
+
+	private static void parseChannelInformation(InputStream is, EDFParserResult result) throws EDFParserException
+	{
+		try
 		{
-			result[i] = readASCIIFromStream(is, size);
-		}
-		return result;
-	}
-
-	private double[] readBulkDoubleFromStream(InputStream is, int size, int length) throws IOException
-	{
-		double[] result = new double[length];
-		for (int i = 0; i < length; i++)
+			EDFHeader header = result.getHeader();
+			int numberOfChannels = header.numberOfChannels;
+			header.channelLabels = readBulkASCIIFromStream(is, LABEL_OF_CHANNEL_SIZE, numberOfChannels);
+			header.transducerTypes = readBulkASCIIFromStream(is, TRANSDUCER_TYPE_SIZE, numberOfChannels);
+			header.dimensions = readBulkASCIIFromStream(is, PHYSICAL_DIMENSION_OF_CHANNEL_SIZE, numberOfChannels);
+			header.minInUnits = readBulkDoubleFromStream(is, PHYSICAL_MIN_IN_UNITS_SIZE, numberOfChannels);
+			header.maxInUnits = readBulkDoubleFromStream(is, PHYSICAL_MAX_IN_UNITS_SIZE, numberOfChannels);
+			header.digitalMin = readBulkIntFromStream(is, DIGITAL_MIN_SIZE, numberOfChannels);
+			header.digitalMax = readBulkIntFromStream(is, DIGITAL_MAX_SIZE, numberOfChannels);
+			header.prefilterings = readBulkASCIIFromStream(is, PREFILTERING_SIZE, numberOfChannels);
+			header.numberOfSamples = readBulkIntFromStream(is, NUMBER_OF_SAMPLES_SIZE, numberOfChannels);
+			header.reserveds = new byte[numberOfChannels][];
+			for (int i = 0; i < header.reserveds.length; i++)
+			{
+				header.reserveds[i] = new byte[RESERVED_SIZE];
+				is.read(header.reserveds[i]);
+			}
+		} catch (IOException e)
 		{
-			result[i] = Double.parseDouble(readASCIIFromStream(is, size).trim());
+			throw new EDFParserException(e);
 		}
-		return result;
-	}
-
-	private int[] readBulkIntFromStream(InputStream is, int size, int length) throws IOException
-	{
-		int[] result = new int[length];
-		for (int i = 0; i < length; i++)
-		{
-			result[i] = Integer.parseInt(readASCIIFromStream(is, size).trim());
-		}
-		return result;
-	}
-
-	private String readASCIIFromStream(InputStream is, int size) throws IOException
-	{
-		int len = 0;
-		byte[] data = new byte[size];
-		len = is.read(data);
-		if (len != data.length)
-			throw new IOException("Wrong EDF format");
-		return new String(data, "ASCII");
 	}
 
 }

@@ -38,12 +38,11 @@ import javax.swing.UnsupportedLookAndFeelException;
 
 public class EDF
 {
-	private static EDFParser parser = null;
+	private static EDFParserResult result = null;
 
 	public static void main(String... args) throws IOException, ClassNotFoundException, InstantiationException,
 			IllegalAccessException, UnsupportedLookAndFeelException
 	{
-		parser = new EDFParser();
 		File file;
 		if (args.length == 0)
 		{
@@ -66,7 +65,7 @@ public class EDF
 			is = new FileInputStream(file);
 			fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_header.txt"));
 			format = EDFParser.class.getResourceAsStream("header.format");
-			parser.parseEDF(is);
+			result = EDFParser.parseEDF(is);
 			writeHeaderData(fos, getPattern(format));
 		} finally
 		{
@@ -85,7 +84,7 @@ public class EDF
 			close(format);
 		}
 
-		for (int i = 0; i < parser.getNumberOfChannels(); i++)
+		for (int i = 0; i < result.getHeader().getNumberOfChannels(); i++)
 		{
 			try
 			{
@@ -101,20 +100,20 @@ public class EDF
 			{
 				fos = new FileOutputStream(file.getParent() + "/data/"
 						+ file.getName().replaceAll("[.].*", "_" + i + ".txt"));
-				for (int j = 0; j < parser.getValuesInUnits(i).length; j++)
-					fos.write((parser.getValuesInUnits(i)[j] + "\n").getBytes("UTF-8"));
+				for (int j = 0; j < result.getSignal().getValuesInUnits()[i].length; j++)
+					fos.write((result.getSignal().getValuesInUnits()[i][j] + "\n").getBytes("UTF-8"));
 			} finally
 			{
 				close(fos);
 			}
 		}
-		List<Annotation> annotations = parser.getAnnotations();
+		List<EDFAnnotation> annotations = result.getAnnotations();
 		if (annotations == null || annotations.size() == 0)
 			return;
 		try
 		{
 			fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_annotation.txt"));
-			for (Annotation annotation : annotations)
+			for (EDFAnnotation annotation : annotations)
 			{
 				if (annotation.getAnnotations().size() != 0)
 				{
@@ -134,19 +133,22 @@ public class EDF
 
 	private static void writeHeaderData(OutputStream os, String pattern) throws IOException
 	{
-		String message = MessageFormat.format(pattern, parser.getIdCode().trim(), parser.getSubjectID().trim(), parser
-				.getRecordingID().trim(), parser.getStartDate().trim(), parser.getStartTime().trim(), parser
-				.getBytesInHeader(), parser.getFormatVersion().trim(), parser.getNumberOfRecords(), parser
-				.getDurationOfRecords(), parser.getNumberOfChannels());
+		String message = MessageFormat.format(pattern, result.getHeader().getIdCode().trim(), result.getHeader()
+				.getSubjectID().trim(), result.getHeader().getRecordingID().trim(), result.getHeader().getStartDate()
+				.trim(), result.getHeader().getStartTime().trim(), result.getHeader().getBytesInHeader(), result
+				.getHeader().getFormatVersion().trim(), result.getHeader().getNumberOfRecords(), result.getHeader()
+				.getDurationOfRecords(), result.getHeader().getNumberOfChannels());
 		os.write(message.getBytes("UTF-8"));
 	}
 
 	private static void writeChannelData(OutputStream os, String pattern, int i) throws IOException
 	{
-		String message = MessageFormat.format(pattern, parser.getChannelLabels(i).trim(), parser.getTransducerTypes(i)
-				.trim(), parser.getDimensions(i).trim(), parser.getMinInUnits(i), parser.getMaxInUnits(i), parser
-				.getDigitalMin(i), parser.getDigitalMax(i), parser.getPrefilterings(i).trim(), parser
-				.getNumberOfSamples(i), new String(parser.getReserveds(i)).trim());
+		String message = MessageFormat.format(pattern, result.getHeader().getChannelLabels()[i].trim(), result
+				.getHeader().getTransducerTypes()[i].trim(), result.getHeader().getDimensions()[i].trim(), result
+				.getHeader().getMinInUnits()[i], result.getHeader().getMaxInUnits()[i], result.getHeader()
+				.getDigitalMin()[i], result.getHeader().getDigitalMax()[i], result.getHeader().getPrefilterings()[i]
+				.trim(), result.getHeader().getNumberOfSamples()[i], new String(result.getHeader().getReserveds()[i])
+				.trim());
 		os.write(message.getBytes("UTF-8"));
 	}
 

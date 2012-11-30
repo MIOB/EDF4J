@@ -20,46 +20,32 @@
  */
 package ru.mipt.edf;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
-public class EDFAnnotation
+/**
+ * This exception is thrown if the file format is not according to EDF.
+ */
+public class EDFParserException extends IOException
 {
-	protected double onSet = 0;
-	protected double duration = 0;
-	protected List<String> annotations = new ArrayList<String>();
+	private static final long serialVersionUID = 3807109927368496625L;
 
-	protected EDFAnnotation(String onSet, String duration, String[] annotations)
+	public EDFParserException()
 	{
-		this.onSet = Double.parseDouble(onSet);
-		if (duration != null && duration != "")
-			this.duration = Double.parseDouble(duration);
-		for (int i = 0; i < annotations.length; i++)
-		{
-			if (annotations[i] == null || annotations[i].trim().equals(""))
-				continue;
-			this.annotations.add(annotations[i]);
-		}
+		this("File format not according to EDF/EDF+ specification.", null);
 	}
 
-	public double getOnSet()
+	public EDFParserException(Throwable th)
 	{
-		return onSet;
+		this("File format not according to EDF/EDF+ specification.", th);
 	}
 
-	public double getDuration()
+	public EDFParserException(String message)
 	{
-		return duration;
+		this(message, null);
 	}
 
-	public List<String> getAnnotations()
+	public EDFParserException(String message, Throwable th)
 	{
-		return annotations;
-	}
-
-	@Override
-	public String toString()
-	{
-		return "Annotation [onSet=" + onSet + ", duration=" + duration + ", annotations=" + annotations + "]";
+		super(message, th);
 	}
 }

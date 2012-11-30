@@ -20,46 +20,30 @@
  */
 package ru.mipt.edf;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class EDFAnnotation
+/**
+ * This class represents the complete content of an EDF-File.
+ */
+public class EDFParserResult
 {
-	protected double onSet = 0;
-	protected double duration = 0;
-	protected List<String> annotations = new ArrayList<String>();
+	protected EDFHeader header;
+	protected EDFSignal signal;
+	protected List<EDFAnnotation> annotations;
 
-	protected EDFAnnotation(String onSet, String duration, String[] annotations)
+	public EDFHeader getHeader()
 	{
-		this.onSet = Double.parseDouble(onSet);
-		if (duration != null && duration != "")
-			this.duration = Double.parseDouble(duration);
-		for (int i = 0; i < annotations.length; i++)
-		{
-			if (annotations[i] == null || annotations[i].trim().equals(""))
-				continue;
-			this.annotations.add(annotations[i]);
-		}
+		return header;
 	}
 
-	public double getOnSet()
+	public EDFSignal getSignal()
 	{
-		return onSet;
+		return signal;
 	}
 
-	public double getDuration()
-	{
-		return duration;
-	}
-
-	public List<String> getAnnotations()
+	public List<EDFAnnotation> getAnnotations()
 	{
 		return annotations;
 	}
 
-	@Override
-	public String toString()
-	{
-		return "Annotation [onSet=" + onSet + ", duration=" + duration + ", annotations=" + annotations + "]";
-	}
 }
