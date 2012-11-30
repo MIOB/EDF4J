@@ -90,6 +90,12 @@ public class EDFParser
 		super();
 	}
 
+	/**
+	 * Parse both data and header of EDF file.
+	 * 
+	 * @param is stream with EDF file.
+	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
+	 */
 	public void parseEDF(InputStream is) throws IOException
 	{
 		parseHeader(is);
@@ -263,6 +269,12 @@ public class EDFParser
 
 	}
 
+	/**
+	 * Parse only header of EDF file.
+	 * 
+	 * @param is stream with EDF file.
+	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
+	 */
 	public void parseHeader(InputStream is) throws IOException
 	{
 		if (is.read() != '0')
@@ -300,6 +312,13 @@ public class EDFParser
 		}
 	}
 
+	/**
+	 * Parse only data EDF file.
+	 * This method should be invoked only after parseHeader method.
+	 * 
+	 * @param is stream with EDF file.
+	 * @throws IOException throws if parser don't recognized EDF (EDF+) format in stream. 
+	 */
 	public void parseData(InputStream is) throws IOException
 	{
 		if(idCode == null)

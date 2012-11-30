@@ -23,4 +23,4 @@ Example usage
 Example program
 ---------------
 
-An example program is available in the file EDF.java
+An example program is available in the file EDF.java. This example parse EDF (or EDF+) file and write it into several txt files.
