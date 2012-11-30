@@ -8,27 +8,44 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.Scanner;
+
+import javax.swing.JFileChooser;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 public class EDF
 {
 	private static EDFParser parser = null;
 
-	public static void main(String[] args) throws IOException
+	public static void main(String... args) throws IOException, ClassNotFoundException, InstantiationException,
+			IllegalAccessException, UnsupportedLookAndFeelException
 	{
-
 		parser = new EDFParser();
-		File file = new File(args[0]);
+		File file;
+		if (args.length == 0)
+		{
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			JFileChooser fileChooser = new JFileChooser();
+			if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+				file = fileChooser.getSelectedFile();
+			else
+				return;
+		} else
+			file = new File(args[0]);
+
 		new File(file.getParent() + "/data").getAbsoluteFile().mkdir();
+
 		InputStream is = null;
 		FileOutputStream fos = null;
 		InputStream format = null;
 		try
 		{
 			is = new FileInputStream(file);
-			parser.parseEDF(is);
 			fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_header.txt"));
 			format = EDFParser.class.getResourceAsStream("header.format");
+			parser.parseEDF(is);
 			writeHeaderData(fos, getPattern(format));
 		} finally
 		{
@@ -37,6 +54,7 @@ public class EDF
 			close(format);
 		}
 		String channelFormat = null;
+		format = null;
 		try
 		{
 			format = EDFParser.class.getResourceAsStream("channel_info.format");
@@ -50,64 +68,91 @@ public class EDF
 		{
 			try
 			{
-				fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_channel_info_" + i + ".txt"));
+				fos = new FileOutputStream(file.getParent() + "/"
+						+ file.getName().replaceAll("[.].*", "_channel_info_" + i + ".txt"));
 				writeChannelData(fos, channelFormat, i);
 			} finally
 			{
-				close(format);
 				close(fos);
 			}
+
 			try
 			{
-				fos = new FileOutputStream(file.getParent() + "/data/" + file.getName().replaceAll("[.].*", "_" + i + ".txt"));
-				for (int j = 0; j < parser.getValuesInUnits()[i].length; j++)
-				{
-					fos.write((parser.getValuesInUnits()[i][j] + "\n").getBytes("UTF-8"));
-				}
+				fos = new FileOutputStream(file.getParent() + "/data/"
+						+ file.getName().replaceAll("[.].*", "_" + i + ".txt"));
+				for (int j = 0; j < parser.getValuesInUnits(i).length; j++)
+					fos.write((parser.getValuesInUnits(i)[j] + "\n").getBytes("UTF-8"));
 			} finally
 			{
-				close(format);
 				close(fos);
 			}
 		}
-
-	}
-
-	private static void close(Closeable c)
-	{
+		List<Annotation> annotations = parser.getAnnotations();
+		if (annotations == null || annotations.size() == 0)
+			return;
 		try
 		{
-			c.close();
-		} catch (Exception e)
+			fos = new FileOutputStream(file.getParent() + "/" + file.getName().replaceAll("[.].*", "_annotation.txt"));
+			for (Annotation annotation : annotations)
+			{
+				if (annotation.getAnnotations().size() != 0)
+				{
+					StringBuffer buffer = new StringBuffer();
+					buffer.append(annotation.getOnSet()).append(";").append(annotation.getDuration());
+					for (int i = 0; i < annotation.getAnnotations().size(); i++)
+						buffer.append(";").append(annotation.getAnnotations().get(i));
+					buffer.append("\n");
+					fos.write(buffer.toString().getBytes());
+				}
+			}
+		} finally
 		{
+			close(fos);
 		}
 	}
 
 	private static void writeHeaderData(OutputStream os, String pattern) throws IOException
 	{
-		String message = MessageFormat.format(pattern, parser.getIdCode().trim(), parser.getSubjectID().trim(), parser.getRecordingID()
-				.trim(), parser.getStartDate().trim(), parser.getStartTime().trim(), parser.getBytesInHeader(), parser.getFormatVersion()
-				.trim(), parser.getNumberOfRecords(), parser.getDurationOfRecords(), parser.getNumberOfChannels());
+		String message = MessageFormat.format(pattern, parser.getIdCode().trim(), parser.getSubjectID().trim(), parser
+				.getRecordingID().trim(), parser.getStartDate().trim(), parser.getStartTime().trim(), parser
+				.getBytesInHeader(), parser.getFormatVersion().trim(), parser.getNumberOfRecords(), parser
+				.getDurationOfRecords(), parser.getNumberOfChannels());
 		os.write(message.getBytes("UTF-8"));
 	}
 
 	private static void writeChannelData(OutputStream os, String pattern, int i) throws IOException
 	{
-		String message = MessageFormat.format(pattern, parser.getChannelLabels()[i].trim(), parser.getTransducerTypes()[i].trim(),
-				parser.getDimensions()[i].trim(), parser.getMinInUnits()[i], parser.getMaxInUnits()[i], parser.getDigitalMin()[i],
-				parser.getDigitalMax()[i], parser.getPrefilterings()[i].trim(), parser.getNumberOfSamples()[i],
-				parser.getReserveds()[i].trim());
+		String message = MessageFormat.format(pattern, parser.getChannelLabels(i).trim(), parser.getTransducerTypes(i)
+				.trim(), parser.getDimensions(i).trim(), parser.getMinInUnits(i), parser.getMaxInUnits(i), parser
+				.getDigitalMin(i), parser.getDigitalMax(i), parser.getPrefilterings(i).trim(), parser
+				.getNumberOfSamples(i), new String(parser.getReserveds(i)).trim());
 		os.write(message.getBytes("UTF-8"));
 	}
 
 	private static String getPattern(InputStream is)
 	{
 		StringBuilder str = new StringBuilder();
-		Scanner scn = new Scanner(is);
-		while (scn.hasNextLine())
+		Scanner scn = null;
+		try
 		{
-			str.append(scn.nextLine()).append("\n");
+			scn = new Scanner(is);
+			while (scn.hasNextLine())
+				str.append(scn.nextLine()).append("\n");
+		} finally
+		{
+			close(scn);
 		}
 		return str.toString();
+	}
+
+	private static final void close(Closeable c)
+	{
+		try
+		{
+			c.close();
+		} catch (Exception e)
+		{
+			// do nothing
+		}
 	}
 }

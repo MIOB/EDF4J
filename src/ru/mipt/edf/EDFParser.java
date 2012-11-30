@@ -6,6 +6,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Collections;
+import java.util.List;
 
 public class EDFParser
 {
@@ -49,11 +51,13 @@ public class EDFParser
 	private int[] digitalMax = null;
 	private String[] prefilterings = null;
 	private int[] numberOfSamples = null;
-	private String[] reserveds = null;
+	private byte[][] reserveds = null;
 	private short[][] digitalValues = null;
 
 	private double[] unitsInDigit = null;
 	private double[][] valuesInUnits = null;
+	private int annotationIndex = 1024;
+	private List<Annotation> annotations = null;
 
 	public EDFParser()
 	{
@@ -64,9 +68,6 @@ public class EDFParser
 	{
 		parseHeader(is);
 		parseData(is);
-
-		if (is.read() != -1)
-			throw new IOException("Не верный формат EDF файла");
 	}
 
 	public final String getIdCode()
@@ -119,70 +120,127 @@ public class EDFParser
 		return numberOfChannels;
 	}
 
-	public final String[] getChannelLabels()
+	public final String getChannelLabels(int i)
 	{
-		return channelLabels;
+		if (i >= annotationIndex)
+			i++;
+		return channelLabels[i];
 	}
 
-	public final String[] getTransducerTypes()
+	public final String getTransducerTypes(int i)
 	{
-		return transducerTypes;
+		if (i >= annotationIndex)
+			i++;
+		return transducerTypes[i];
 	}
 
-	public final String[] getDimensions()
+	public final String getDimensions(int i)
 	{
-		return dimensions;
+		if (i >= annotationIndex)
+			i++;
+		return dimensions[i];
 	}
 
-	public final double[] getMinInUnits()
+	public final double getMinInUnits(int i)
 	{
-		return minInUnits;
+		if (i >= annotationIndex)
+			i++;
+		return minInUnits[i];
 	}
 
-	public final double[] getMaxInUnits()
+	public final double getMaxInUnits(int i)
 	{
-		return maxInUnits;
+		if (i >= annotationIndex)
+			i++;
+		return maxInUnits[i];
 	}
 
-	public final int[] getDigitalMin()
+	public final int getDigitalMin(int i)
 	{
-		return digitalMin;
+		if (i >= annotationIndex)
+			i++;
+		return digitalMin[i];
 	}
 
-	public final int[] getDigitalMax()
+	public final int getDigitalMax(int i)
 	{
-		return digitalMax;
+		if (i >= annotationIndex)
+			i++;
+		return digitalMax[i];
 	}
 
-	public final String[] getPrefilterings()
+	public final String getPrefilterings(int i)
 	{
-		return prefilterings;
+		if (i >= annotationIndex)
+			i++;
+		return prefilterings[i];
 	}
 
-	public final int[] getNumberOfSamples()
+	public final int getNumberOfSamples(int i)
 	{
-		return numberOfSamples;
+		if (i >= annotationIndex)
+			i++;
+		return numberOfSamples[i];
 	}
 
-	public final String[] getReserveds()
+	public final byte[] getReserveds(int i)
 	{
-		return reserveds;
+		if (i >= annotationIndex)
+			i++;
+		return reserveds[i];
 	}
 
-	public final short[][] getDigitalValues()
+	public final short[] getDigitalValues(int i)
 	{
-		return digitalValues;
+		if (i >= annotationIndex)
+			i++;
+		return digitalValues[i];
 	}
 
-	public final double[][] getValuesInUnits()
+	public final double[] getValuesInUnits(int i)
 	{
-		return valuesInUnits;
+		if (i >= annotationIndex)
+			i++;
+		return valuesInUnits[i];
 	}
 
-	private void parseHeader(InputStream is) throws IOException
+	public final List<Annotation> getAnnotations()
+	{
+		if (annotations == null)
+			return null;
+		return Collections.unmodifiableList(annotations);
+	}
+
+	private void parseAnnotation()
+	{
+
+		if (!formatVersion.startsWith("EDF+"))
+			return;
+
+		for (int i = 0; i < numberOfChannels; i++)
+		{
+			if ("EDF Annotations".equals(channelLabels[i].trim()))
+			{
+				annotationIndex = i;
+				numberOfChannels--;
+				break;
+			}
+		}
+		short[] s = digitalValues[annotationIndex];
+		byte[] b = new byte[s.length * 2];
+		for (int i = 0; i < s.length * 2; i += 2)
+		{
+			b[i] = (byte) (s[i / 2] % 256);
+			b[i + 1] = (byte) (s[i / 2] / 256 % 256);
+		}
+		annotations = Annotation.parseAnnotations(b);
+
+	}
+
+	public void parseHeader(InputStream is) throws IOException
 	{
 		if (is.read() != '0')
-			throw new IOException("Не верный формат EDF файла");
+			throw new IOException("Wrong EDF format.");
 		idCode = readASCIIFromStream(is, IDENTIFICATION_CODE_SIZE);
 		subjectID = readASCIIFromStream(is, LOCAL_SUBJECT_IDENTIFICATION_SIZE);
 		recordingID = readASCIIFromStream(is, LOCAL_REOCRDING_IDENTIFICATION_SIZE);
@@ -208,11 +266,18 @@ public class EDFParser
 		digitalMax = readBulkIntFromStream(is, DIGITAL_MAX_SIZE, numberOfChannels);
 		prefilterings = readBulkASCIIFromStream(is, PREFILTERING_SIZE, numberOfChannels);
 		numberOfSamples = readBulkIntFromStream(is, NUMBER_OF_SAMPLES_SIZE, numberOfChannels);
-		reserveds = readBulkASCIIFromStream(is, RESERVED_SIZE, numberOfChannels);
+		reserveds = new byte[numberOfChannels][];
+		for (int i = 0; i < reserveds.length; i++)
+		{
+			reserveds[i] = new byte[RESERVED_SIZE];
+			is.read(reserveds[i]);
+		}
 	}
 
-	private void parseData(InputStream is) throws IOException
+	public void parseData(InputStream is) throws IOException
 	{
+		if(idCode == null)
+			throw new IllegalStateException("Header have not been parsed");
 		unitsInDigit = new double[numberOfChannels];
 		for (int i = 0; i < unitsInDigit.length; i++)
 			unitsInDigit[i] = (maxInUnits[i] - minInUnits[i]) / (digitalMax[i] - digitalMin[i]);
@@ -224,7 +289,7 @@ public class EDFParser
 			digitalValues[i] = new short[numberOfRecords * numberOfSamples[i]];
 			valuesInUnits[i] = new double[numberOfRecords * numberOfSamples[i]];
 		}
-		
+
 		int samplesPerRecord = 0;
 		for (int nos : numberOfSamples) 
 		{
@@ -248,6 +313,8 @@ public class EDFParser
 					valuesInUnits[j][s] = digitalValues[j][s] * unitsInDigit[j];
 				}
 		}
+		
+		parseAnnotation();
 	}
 
 	private String[] readBulkASCIIFromStream(InputStream is, int size, int length) throws IOException
@@ -286,7 +353,7 @@ public class EDFParser
 		byte[] data = new byte[size];
 		len = is.read(data);
 		if (len != data.length)
-			throw new IOException("Не верный формат EDF файла");
+			throw new IOException("Wrong EDF format");
 		return new String(data, "ASCII");
 	}
 
