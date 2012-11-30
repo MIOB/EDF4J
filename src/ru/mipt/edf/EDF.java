@@ -1,4 +1,4 @@
-﻿/*
+/*
  * (The MIT license)
  * 
  * Copyright (c) 2012 MIPT (mr.santak@gmail.com)
