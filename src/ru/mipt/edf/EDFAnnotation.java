@@ -23,15 +23,15 @@ package ru.mipt.edf;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Annotation
+public class EDFAnnotation
 {
 	private double onSet = 0;
 	private double duration = 0;
 	private List<String> annotations = new ArrayList<String>();
 
-	public static List<Annotation> parseAnnotations(byte[] b)
+	public static List<EDFAnnotation> parseAnnotations(byte[] b)
 	{
-		List<Annotation> annotations = new ArrayList<Annotation>();
+		List<EDFAnnotation> annotations = new ArrayList<EDFAnnotation>();
 		int onSetIndex = 0;
 		int durationIndex = -1;
 		int annotationIndex = -2;
@@ -68,14 +68,14 @@ public class Annotation
 					duration = "";
 				}
 				String annotation = new String(b, annotationIndex, endIndex - annotationIndex);
-				annotations.add(new Annotation(onSet, duration, annotation.split("[\u0014]")));
+				annotations.add(new EDFAnnotation(onSet, duration, annotation.split("[\u0014]")));
 				onSetIndex = i;
 			}
 		}
 		return annotations;
 	}
 
-	private Annotation(String onSet, String duration, String[] annotations)
+	private EDFAnnotation(String onSet, String duration, String[] annotations)
 	{
 		this.onSet = Double.parseDouble(onSet);
 		if (duration != null && duration != "")
