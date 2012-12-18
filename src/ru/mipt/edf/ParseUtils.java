@@ -58,8 +58,8 @@ public abstract class ParseUtils
 		byte[] data = new byte[size];
 		len = is.read(data);
 		if (len != data.length)
-			throw new IOException("Wrong EDF format");
-		return new String(data, "ASCII");
+			throw new EDFParserException();
+		return new String(data, EDFConstants.CHARSET);
 	}
 
 	public static <T> T[] removeElement(T[] array, int i)

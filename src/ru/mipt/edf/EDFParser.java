@@ -35,6 +35,7 @@ import static ru.mipt.edf.ParseUtils.readBulkASCIIFromStream;
 import static ru.mipt.edf.ParseUtils.readBulkDoubleFromStream;
 import static ru.mipt.edf.ParseUtils.readBulkIntFromStream;
 import static ru.mipt.edf.ParseUtils.removeElement;
+import static ru.mipt.edf.EDFConstants.*;
 
 /**
  * This is an EDFParser which is capable of parsing files in the formats EDF and
@@ -44,27 +45,6 @@ import static ru.mipt.edf.ParseUtils.removeElement;
  */
 public class EDFParser
 {
-	private static final int IDENTIFICATION_CODE_SIZE = 7;
-	private static final int LOCAL_SUBJECT_IDENTIFICATION_SIZE = 80;
-	private static final int LOCAL_REOCRDING_IDENTIFICATION_SIZE = 80;
-	private static final int START_DATE_SIZE = 8;
-	private static final int START_TIME_SIZE = 8;
-	private static final int HEADER_SIZE = 8;
-	private static final int DATA_FORMAT_VERSION_SIZE = 44;
-	private static final int DURATION_DATA_RECORDS_SIZE = 8;
-	private static final int NUMBER_OF_DATA_RECORDS_SIZE = 8;
-	private static final int NUMBER_OF_CHANELS_SIZE = 4;
-	private static final int LABEL_OF_CHANNEL_SIZE = 16;
-	private static final int TRANSDUCER_TYPE_SIZE = 80;
-	private static final int PHYSICAL_DIMENSION_OF_CHANNEL_SIZE = 8;
-	private static final int PHYSICAL_MIN_IN_UNITS_SIZE = 8;
-	private static final int PHYSICAL_MAX_IN_UNITS_SIZE = 8;
-	private static final int DIGITAL_MIN_SIZE = 8;
-	private static final int DIGITAL_MAX_SIZE = 8;
-	private static final int PREFILTERING_SIZE = 80;
-	private static final int NUMBER_OF_SAMPLES_SIZE = 8;
-	private static final int RESERVED_SIZE = 32;
-
 	/**
 	 * Parse the InputStream which should be at the start of an EDF-File. The
 	 * method returns an object containing the complete content of the EDF-File.
@@ -97,13 +77,14 @@ public class EDFParser
 	{
 		try
 		{
-			if (is.read() != '0')
-				throw new EDFParserException();
 			EDFHeader header = new EDFHeader();
 			EDFParserResult result = new EDFParserResult();
 			result.header = header;
 
 			header.idCode = readASCIIFromStream(is, IDENTIFICATION_CODE_SIZE);
+			if (!header.idCode.trim().equals("0")) {
+				throw new EDFParserException();
+			}
 			header.subjectID = readASCIIFromStream(is, LOCAL_SUBJECT_IDENTIFICATION_SIZE);
 			header.recordingID = readASCIIFromStream(is, LOCAL_REOCRDING_IDENTIFICATION_SIZE);
 			header.startDate = readASCIIFromStream(is, START_DATE_SIZE);
