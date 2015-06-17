@@ -27,8 +27,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 	<property name="src" location="${basedir}/src" />
 	<property name="resources" location="${basedir}/resources" />
 	<property name="bin" location="${basedir}/bin" />
-	<property name="dist" location="${basedir}" />
+	<property name="dist" location="${basedir}/dist" />
 	<property name="doc" location="${basedir}/doc" />
+    
+    <path id="edfj4.classpath">
+        <fileset dir="${resources}">
+            <include name="*.jar" />
+        </fileset>
+    </path>
 
 	<target name="init">
 		<tstamp />
@@ -37,16 +43,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 	</target>
 
 	<target name="compile" depends="init">
-		<javac srcdir="${src}" destdir="${bin}" />
+		<javac srcdir="${src}" destdir="${bin}" classpathref="edfj4.classpath"/>
 		<copy todir="${bin}">
 			<fileset dir="${resources}">
-				<exclude name="*.bak" />
+                <exclude name="*.bak" />
+                <exclude name="*.jar" />
+                <exclude name="*.edf" />
 			</fileset>
 		</copy>
 	</target>
 
 	<target name="build" depends="clean,compile">
-		<jar basedir="${bin}" destfile="${basedir}/${name}.jar">
+		<jar basedir="${bin}" destfile="${dist}/${name}.jar" excludes="ru/mipt/edf/*Test.class">
 			<manifest>
 				<attribute name="Main-Class" value="ru.mipt.edf.EDF" />
 			</manifest>
@@ -55,7 +63,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 	<target name="clean">
 		<delete dir="${bin}" />
-		<delete file="${basedir}/${name}.jar" />
+		<delete file="${dist}/${name}.jar" />
 	</target>
 
 </project>
